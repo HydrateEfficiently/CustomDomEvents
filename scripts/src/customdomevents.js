@@ -4,13 +4,22 @@
 	var customEventTypesByElement = {};
 
 	var nativeAddEventListener = EventTarget.prototype.addEventListener;
+	var nativeRemoveEventListener = EventTarget.prototype.removeEventListener;
 
 	EventTarget.prototype.addEventListener = function(type, listener) {
 		addCustomEventToElement(this, type);
 		if (isRegisteredCustomEventType(type)) {
 			customAddEventListener(this, type, listener);
 		} else {
-			nativeAddEventListener(type, listener);
+			nativeAddEventListener.apply(this, arguments);
+		}
+	};
+
+	EventTarget.prototype.removeEventListener = function(type, listener) {
+		if (isRegisteredCustomEventType(type)) {
+			customRemoveEventListener(this, type, listener);
+		} else {
+			nativeRemoveEventListener.apply(this, arguments);
 		}
 	};
 
@@ -25,20 +34,24 @@
 	function addCustomEventToElement(element, eventType) {
 		if (element[getEventName(eventType)] === undefined) {
 			if (isRegisteredCustomEventType(eventType)) {
-				var customEventTypes = getCustomEventsTypesForElement(element);
-				if (!customEventTypes[eventType]) {
-					var customEventListeners = [];
-					element[getEventName(eventType)] = function () {
-						var length = customEventListeners.length, i;
-						for (i = 0; i < length; i++) {
-							customEventListeners[i].apply(this, arguments);
-						}
-					};
-					customEventTypes[eventType] = customEventListeners;
-				}
+				doAddCustomEventToElement(element, eventType);
 			} else {
 				throw "Event type " + eventType + " does not exist. You can add it by calling CustomDomEvents.registerEventType(\"" + eventType +"\")";
 			}
+		}
+	}
+
+	function doAddCustomEventToElement(element, eventType) {
+		var customEventTypes = getCustomEventsTypesForElement(element);
+		if (!customEventTypes[eventType]) {
+			var customEventListeners = [];
+			element[getEventName(eventType)] = function () {
+				var length = customEventListeners.length, i;
+				for (i = 0; i < length; i++) {
+					customEventListeners[i].apply(this, arguments);
+				}
+			};
+			customEventTypes[eventType] = customEventListeners;
 		}
 	}
 
@@ -52,6 +65,13 @@
 	function customAddEventListener(element, eventType, listener) {
 		var customEventTypes = getCustomEventsTypesForElement(element);
 		customEventTypes[eventType].push(listener);
+	}
+
+	function customRemoveEventListener(element, eventType, listener) {
+		var customEventTypes = getCustomEventsTypesForElement(element),
+			customEventListeners = customEventTypes[eventType],
+			index = customEventListeners.indexOf(listener);
+		customEventListeners.splice(index, 1);
 	}
 
 	function getEventName(eventType) {
