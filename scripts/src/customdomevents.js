@@ -1,4 +1,6 @@
+/*global EventTarget*/
 (function () {
+	"use strict";
 
 	var customEventTypesRegister = {};
 	var customEventTypesByElement = {};
